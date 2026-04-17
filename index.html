@@ -317,8 +317,21 @@ function exportCSV(){
   dl(new Blob(['\uFEFF'+rows.map(r=>r.map(esc).join(',')).join('\n')],{type:'text/csv;charset=utf-8'}),'copertine_'+today()+'.csv');
 }
 function exportExcel(){
-  const ws=XLSX.utils.aoa_to_sheet([['EAN','URL Immagine','Fonte','Stato'],...results.map(r=>[r.ean,r.imgUrl||'',r.source||'',r.status==='found'?'Trovata':r.status==='manual'?'Manuale':'Non trovata'])]);
-  ws['!cols']=[{wch:16},{wch:80},{wch:16},{wch:12}];
+  const header=['EAN','URL Immagine','Fonte','Stato'];
+  const rows=results.map(r=>[
+    {v:Number(r.ean),t:'n'},
+    r.imgUrl||'',
+    r.source||'',
+    r.status==='found'?'Trovata':r.status==='manual'?'Manuale':'Non trovata'
+  ]);
+  const ws=XLSX.utils.aoa_to_sheet([header,...rows]);
+  // Formato EAN: testo lungo senza notazione scientifica
+  const range=XLSX.utils.decode_range(ws['!ref']);
+  for(let row=1;row<=range.e.r;row++){
+    const cell=ws[XLSX.utils.encode_cell({r:row,c:0})];
+    if(cell) cell.z='0';
+  }
+  ws['!cols']=[{wch:18},{wch:80},{wch:16},{wch:12}];
   const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Copertine');
   XLSX.writeFile(wb,'copertine_'+today()+'.xlsx');
 }
