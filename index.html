@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PDE — Recupera Copertine</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{--ink:#1a1410;--paper:#f5f0e8;--cream:#ede5d5;--red:#c8452a;--gold:#b8860b;--green:#2e7d32;--muted:#7a6f62;--border:#d4c9b8;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:var(--paper);color:var(--ink);}
+header{background:var(--ink);padding:18px 32px;display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid var(--red);}
+header h1{font-family:'Playfair Display',serif;font-size:20px;color:var(--paper);}
+header h1 em{color:var(--red);font-style:normal;}
+header .sub{color:#888;font-size:11px;font-family:'DM Mono',monospace;}
+.main{display:grid;grid-template-columns:320px 1fr;min-height:calc(100vh - 63px);}
+.left{background:white;border-right:1px solid var(--border);padding:24px;display:flex;flex-direction:column;gap:14px;overflow-y:auto;}
+.right{padding:24px;overflow-y:auto;}
+.panel-title{font-family:'Playfair Display',serif;font-size:15px;padding-bottom:10px;border-bottom:2px solid var(--ink);}
+textarea{width:100%;height:180px;border:1px solid var(--border);border-radius:6px;padding:10px;font-family:'DM Mono',monospace;font-size:12px;resize:none;background:var(--paper);line-height:1.6;}
+textarea:focus{outline:none;border-color:var(--red);background:white;}
+.btn{width:100%;padding:11px;border-radius:6px;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;transition:all 0.2s;display:flex;align-items:center;justify-content:center;gap:8px;}
+.btn-dark{background:var(--ink);color:white;}.btn-dark:hover{background:#2d2520;}.btn-dark:disabled{background:#aaa;cursor:not-allowed;}
+.btn-red{background:var(--red);color:white;}.btn-red:hover{background:#a8361f;}.btn-red:disabled{background:#ccc;cursor:not-allowed;}
+.btn-outline{background:white;color:var(--ink);border:1px solid var(--border);}.btn-outline:hover{border-color:var(--ink);}
+.progress-bar{height:5px;background:var(--cream);border-radius:3px;}
+.progress-fill{height:100%;background:linear-gradient(90deg,var(--red),var(--gold));border-radius:3px;transition:width 0.3s;width:0%;}
+.progress-text{font-size:11px;color:var(--muted);margin-top:4px;font-family:'DM Mono',monospace;}
+.sources{background:var(--cream);border-radius:6px;padding:10px 12px;font-size:11px;line-height:1.9;border:1px solid var(--border);}
+.sources strong{display:block;font-size:12px;margin-bottom:4px;}
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px;vertical-align:middle;}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.stat{background:var(--paper);border-radius:6px;padding:10px;text-align:center;border:1px solid var(--border);}
+.stat .num{font-size:22px;font-weight:bold;font-family:'DM Mono',monospace;}
+.stat .lbl{font-size:10px;color:var(--muted);margin-top:2px;}
+.green{color:var(--green);}.red2{color:var(--red);}
+.filter-bar{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center;}
+.filter-btn{padding:5px 14px;border-radius:20px;border:1px solid var(--border);background:white;cursor:pointer;font-size:12px;color:var(--muted);transition:all 0.2s;}
+.filter-btn.active{background:var(--ink);color:white;border-color:var(--ink);}
+.flabel{font-size:11px;color:var(--muted);margin-left:auto;font-family:'DM Mono',monospace;}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:14px;}
+.card{background:white;border-radius:8px;border:1px solid var(--border);overflow:hidden;transition:all 0.2s;position:relative;}
+.card:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,0.1);}
+.card.found{border-color:var(--green);border-width:2px;}
+.card.not-found{border-color:#ffb74d;}
+.card.manual{border-color:var(--gold);border-width:2px;}
+.cover{width:100%;aspect-ratio:2/3;object-fit:cover;display:block;background:var(--cream);}
+.cover-ph{width:100%;aspect-ratio:2/3;background:var(--cream);display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--muted);gap:6px;}
+.cover-ph .phi{font-size:28px;}
+.cover-ph .pht{font-size:10px;font-family:'DM Mono',monospace;text-align:center;padding:0 8px;line-height:1.4;}
+@keyframes shimmer{0%,100%{opacity:1}50%{opacity:.5}}
+.loading-ph{animation:shimmer 1s infinite;}
+.sbadge{position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold;box-shadow:0 2px 4px rgba(0,0,0,.2);}
+.sf{background:var(--green);color:white;}.snf{background:#ff8f00;color:white;}.sl{background:#bbb;color:white;}.sm{background:var(--gold);color:white;}
+.card-info{padding:8px 8px 4px;}
+.card-ean{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);}
+.card-title{font-size:11px;color:var(--ink);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500;}
+.card-source{font-size:9px;margin-top:1px;}
+.src-felt{color:#c8452a;}.src-ibs{color:#1565c0;}.src-gb{color:#0288d1;}.src-ol{color:#e65100;}.src-mf{color:#7b1fa2;}
+.card-actions{padding:4px 8px 8px;display:flex;gap:4px;}
+.act-btn{flex:1;padding:4px;border-radius:3px;border:1px solid var(--border);background:var(--paper);cursor:pointer;font-size:10px;color:var(--muted);transition:all .15s;text-align:center;}
+.act-btn:hover{background:var(--ink);color:white;border-color:var(--ink);}
+.empty{text-align:center;padding:80px 20px;color:var(--muted);grid-column:1/-1;}
+.empty .icon{font-size:48px;margin-bottom:16px;}
+.empty p{font-size:14px;line-height:1.6;}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:100;}
+.modal{background:white;border-radius:10px;padding:24px;width:420px;max-width:90vw;}
+.modal h3{font-family:'Playfair Display',serif;margin-bottom:14px;}
+.modal input{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:5px;font-size:13px;margin-bottom:8px;}
+.modal input:focus{outline:none;border-color:var(--red);}
+.mhint{font-size:11px;color:var(--muted);margin-bottom:14px;line-height:1.6;background:var(--cream);padding:8px;border-radius:4px;}
+.modal-btns{display:flex;gap:8px;}.modal-btns button{flex:1;}
+</style>
+</head>
+<body>
+<header>
+  <h1>PDE <em>Promozione</em> — Recupera Copertine</h1>
+  <span class="sub">Feltrinelli · IBS · Mondadori · Google Books · OpenLibrary</span>
+</header>
+<div class="main">
+  <div class="left">
+    <div class="panel-title">📋 Inserisci gli EAN</div>
+    <textarea id="eanInput" placeholder="9788845941184&#10;9791255022053&#10;9788845941191&#10;&#10;Un EAN per riga.&#10;Puoi incollare da Excel."></textarea>
+    <div style="font-size:11px;color:var(--muted)">Un EAN per riga · Puoi incollare da Excel</div>
+
+    <div class="sources">
+      <strong>🔍 Fonti (in ordine):</strong>
+      <div><span class="dot" style="background:#c8452a"></span>Feltrinelli CDN <span style="color:var(--muted);font-size:10px">(lafeltrinelli.it/images)</span></div>
+      <div><span class="dot" style="background:#1565c0"></span>IBS CDN <span style="color:var(--muted);font-size:10px">(img.ibs.it)</span></div>
+      <div><span class="dot" style="background:#7b1fa2"></span>Mondadori Store</div>
+      <div><span class="dot" style="background:#e65100"></span>Open Library</div>
+      <div><span class="dot" style="background:#0288d1"></span>Google Books API</div>
+    </div>
+
+    <button class="btn btn-dark" id="btnSearch" onclick="startSearch()">🔍 Cerca copertine</button>
+
+    <div id="progressWrap" style="display:none">
+      <div class="progress-bar"><div class="progress-fill" id="pFill"></div></div>
+      <div class="progress-text" id="pText">Elaborazione...</div>
+    </div>
+
+    <div class="stats" id="statsWrap" style="display:none">
+      <div class="stat"><div class="num green" id="sFound">0</div><div class="lbl">Trovate</div></div>
+      <div class="stat"><div class="num red2" id="sNotFound">0</div><div class="lbl">Non trovate</div></div>
+      <div class="stat"><div class="num" style="color:var(--gold)" id="sManual">0</div><div class="lbl">Manuali</div></div>
+      <div class="stat"><div class="num" id="sTotal">0</div><div class="lbl">Totale</div></div>
+    </div>
+
+    <button class="btn btn-red" id="btnCSV" onclick="exportCSV()" disabled>⬇️ Esporta CSV</button>
+    <button class="btn btn-outline" id="btnXLS" onclick="exportExcel()" disabled>📊 Esporta Excel</button>
+  </div>
+
+  <div class="right">
+    <div class="filter-bar" id="filterBar" style="display:none">
+      <button class="filter-btn active" onclick="setFilter('tutti')">Tutti</button>
+      <button class="filter-btn" onclick="setFilter('trovate')">✅ Trovate</button>
+      <button class="filter-btn" onclick="setFilter('non_trovate')">⚠️ Non trovate</button>
+      <span class="flabel" id="flabel"></span>
+    </div>
+    <div class="grid" id="grid">
+      <div class="empty"><div class="icon">📚</div><p>Inserisci gli EAN e clicca<br><strong>"Cerca copertine"</strong></p></div>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h3>✏️ URL immagine manuale</h3>
+    <input type="url" id="mUrl" placeholder="https://..." onkeydown="if(event.key==='Enter')saveManual()">
+    <div class="mhint">💡 Vai su lafeltrinelli.it, tasto destro sulla copertina → "Copia indirizzo immagine" e incollalo qui.</div>
+    <div class="modal-btns">
+      <button class="btn btn-outline" onclick="closeModal()">Annulla</button>
+      <button class="btn btn-dark" onclick="saveManual()">Salva</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let results=[], currentFilter='tutti', modalEan=null;
+
+// ── Verifica immagine reale (no placeholder) ─────────────────────────────────
+function testImg(url){
+  return new Promise(resolve=>{
+    const img=new Image();
+    // Cross-origin: usiamo naturalWidth > 50 per escludere placeholder minuscoli
+    img.onload=()=>resolve(img.naturalWidth>50 && img.naturalHeight>50);
+    img.onerror=()=>resolve(false);
+    img.src=url+'?_='+ Date.now(); // bust cache
+    setTimeout(()=>resolve(false),8000);
+  });
+}
+
+// ── Sorgenti in ordine ───────────────────────────────────────────────────────
+async function findCover(ean){
+
+  // 1. Feltrinelli CDN — pattern confermato
+  const urls_felt=[
+    `https://www.lafeltrinelli.it/images/${ean}_0_0_424_0_75.jpg`,
+    `https://www.lafeltrinelli.it/images/${ean}_0_0_300_0_75.jpg`,
+    `https://www.lafeltrinelli.it/images/${ean}_0_0_200_0_75.jpg`,
+  ];
+  for(const u of urls_felt){
+    if(await testImg(u)) return {url:u, source:'Feltrinelli', cls:'src-felt'};
+  }
+
+  // 2. IBS CDN
+  const urls_ibs=[
+    `https://img.ibs.it/img/${ean}L.jpg`,
+    `https://img.ibs.it/img/${ean}M.jpg`,
+  ];
+  for(const u of urls_ibs){
+    if(await testImg(u)) return {url:u, source:'IBS', cls:'src-ibs'};
+  }
+
+  // 3. Mondadori Store
+  const urls_mond=[
+    `https://images.mondadoristore.it/immagini/${ean}COP.jpg`,
+    `https://images.mondadoristore.it/copertine/${ean}.jpg`,
+  ];
+  for(const u of urls_mond){
+    if(await testImg(u)) return {url:u, source:'Mondadori', cls:'src-mf'};
+  }
+
+  // 4. Open Library
+  const ol=`https://covers.openlibrary.org/b/isbn/${ean}-L.jpg`;
+  if(await testImg(ol)) return {url:ol, source:'OpenLibrary', cls:'src-ol'};
+
+  // 5. Google Books API
+  try{
+    const r=await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${ean}&maxResults=1`);
+    const d=await r.json();
+    if(d.items && d.items[0]){
+      const imgs=d.items[0].volumeInfo.imageLinks||{};
+      const raw=imgs.large||imgs.medium||imgs.small||imgs.thumbnail||imgs.smallThumbnail||'';
+      const url=raw.replace('http://','https://').replace('zoom=1','zoom=3').replace('&edge=curl','');
+      if(url && await testImg(url)) return {url, source:'Google Books', cls:'src-gb'};
+    }
+  }catch(e){}
+
+  return null;
+}
+
+// ── Ricerca principale ───────────────────────────────────────────────────────
+async function startSearch(){
+  const raw=document.getElementById('eanInput').value.trim();
+  if(!raw){alert('Inserisci almeno un EAN!');return;}
+  const eans=[...new Set(raw.split('\n').map(e=>e.trim().replace(/\D/g,'')).filter(e=>e.length>=10))];
+  if(!eans.length){alert('Nessun EAN valido trovato.');return;}
+
+  const btn=document.getElementById('btnSearch');
+  btn.disabled=true;
+  document.getElementById('progressWrap').style.display='block';
+  document.getElementById('statsWrap').style.display='grid';
+  document.getElementById('filterBar').style.display='flex';
+
+  results=eans.map(ean=>({ean,imgUrl:'',source:'',cls:'',status:'loading'}));
+  renderGrid();
+
+  let found=0, notFound=0;
+  for(let i=0;i<results.length;i++){
+    const ean=results[i].ean;
+    document.getElementById('pFill').style.width=((i+1)/results.length*100)+'%';
+    document.getElementById('pText').textContent=`Ricerca ${i+1}/${results.length} — EAN: ${ean}`;
+
+    const cover=await findCover(ean);
+    if(cover){
+      results[i].imgUrl=cover.url;
+      results[i].source=cover.source;
+      results[i].cls=cover.cls;
+      results[i].status='found';
+      found++;
+    }else{
+      results[i].status='not_found';
+      notFound++;
+    }
+    updStats(found,notFound);
+    renderGrid();
+    await new Promise(r=>setTimeout(r,80));
+  }
+
+  btn.disabled=false;
+  document.getElementById('btnCSV').disabled=false;
+  document.getElementById('btnXLS').disabled=false;
+  document.getElementById('pText').textContent=`✅ Completato — ${found}/${results.length} trovate`;
+}
+
+// ── UI ───────────────────────────────────────────────────────────────────────
+function updStats(f,nf){
+  document.getElementById('sFound').textContent=f;
+  document.getElementById('sNotFound').textContent=nf;
+  document.getElementById('sManual').textContent=results.filter(r=>r.status==='manual').length;
+  document.getElementById('sTotal').textContent=results.length;
+}
+
+function renderGrid(){
+  const f=results.filter(r=>{
+    if(currentFilter==='trovate') return r.status==='found'||r.status==='manual';
+    if(currentFilter==='non_trovate') return r.status==='not_found';
+    return true;
+  });
+  document.getElementById('flabel').textContent=f.length+' / '+results.length;
+  if(!f.length){
+    document.getElementById('grid').innerHTML='<div class="empty"><div class="icon">🔍</div><p>Nessun risultato</p></div>';
+    return;
+  }
+  document.getElementById('grid').innerHTML=f.map(r=>{
+    const ok=r.status==='found'||r.status==='manual';
+    const bc=r.status==='found'?'sf':r.status==='manual'?'sm':r.status==='loading'?'sl':'snf';
+    const bi=ok?'✓':r.status==='loading'?'…':'!';
+    const cc=r.status==='found'?'found':r.status==='manual'?'manual':r.status==='not_found'?'not-found':'';
+    const img=ok&&r.imgUrl
+      ?`<img class="cover" src="${h(r.imgUrl)}" alt=""
+          onerror="this.outerHTML='<div class=cover-ph><div class=phi>📖</div><div class=pht>Errore</div></div>'">`
+      :`<div class="cover-ph ${r.status==='loading'?'loading-ph':''}">
+          <div class="phi">${r.status==='loading'?'⏳':'📖'}</div>
+          <div class="pht">${r.status==='loading'?'Ricerca...':'Non trovata'}</div>
+        </div>`;
+    return`<div class="card ${cc}">
+      <div class="sbadge ${bc}">${bi}</div>
+      ${img}
+      <div class="card-info">
+        <div class="card-ean">${r.ean}</div>
+        ${r.source?`<div class="card-source ${r.cls}">📌 ${r.source}</div>`:''}
+      </div>
+      <div class="card-actions">
+        <div class="act-btn" onclick="openModal('${r.ean}')" title="URL manuale">✏️</div>
+        ${r.imgUrl?`<div class="act-btn" onclick="window.open('${h(r.imgUrl)}','_blank')" title="Apri">👁️</div>`:''}
+        ${r.imgUrl?`<div class="act-btn" onclick="removeImg('${r.ean}')" title="Rimuovi">✕</div>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function h(s){return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function setFilter(f){currentFilter=f;document.querySelectorAll('.filter-btn').forEach((b,i)=>b.classList.toggle('active',['tutti','trovate','non_trovate'][i]===f));renderGrid();}
+function openModal(ean){modalEan=ean;document.getElementById('mUrl').value=results.find(r=>r.ean===ean)?.imgUrl||'';document.getElementById('overlay').style.display='flex';setTimeout(()=>document.getElementById('mUrl').focus(),100);}
+function closeModal(){document.getElementById('overlay').style.display='none';modalEan=null;}
+function saveManual(){
+  const url=document.getElementById('mUrl').value.trim();
+  if(!url){closeModal();return;}
+  const r=results.find(r=>r.ean===modalEan);
+  if(r){r.imgUrl=url;r.status='manual';r.source='Manuale';r.cls='';renderGrid();}
+  closeModal();
+}
+function removeImg(ean){
+  const r=results.find(r=>r.ean===ean);
+  if(r){r.imgUrl='';r.source='';r.cls='';r.status='not_found';renderGrid();}
+}
+
+function esc(v){const s=String(v||'');return s.includes(',')||s.includes('"')||s.includes('\n')?'"'+s.replace(/"/g,'""')+'"':s;}
+function dl(blob,name){const u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(u);}
+function today(){return new Date().toISOString().slice(0,10);}
+
+function exportCSV(){
+  const rows=[['EAN','URL Immagine','Fonte','Stato'],...results.map(r=>[r.ean,r.imgUrl||'',r.source||'',r.status==='found'?'Trovata':r.status==='manual'?'Manuale':'Non trovata'])];
+  dl(new Blob(['\uFEFF'+rows.map(r=>r.map(esc).join(',')).join('\n')],{type:'text/csv;charset=utf-8'}),'copertine_'+today()+'.csv');
+}
+function exportExcel(){
+  const ws=XLSX.utils.aoa_to_sheet([['EAN','URL Immagine','Fonte','Stato'],...results.map(r=>[r.ean,r.imgUrl||'',r.source||'',r.status==='found'?'Trovata':r.status==='manual'?'Manuale':'Non trovata'])]);
+  ws['!cols']=[{wch:16},{wch:80},{wch:16},{wch:12}];
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Copertine');
+  XLSX.writeFile(wb,'copertine_'+today()+'.xlsx');
+}
+
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
+document.getElementById('overlay').addEventListener('click',e=>{if(e.target===e.currentTarget)closeModal();});
+</script>
+</body>
+</html>
